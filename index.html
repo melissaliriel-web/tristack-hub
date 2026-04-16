@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TriStack — Agente de IA para HUB Lançamentos</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple: #a855f7;
+    --purple-dark: #7c3aed;
+    --purple-light: #d8b4fe;
+    --teal: #0f766e;
+    --blue-mid: #4f6bc0;
+    --black: #080810;
+    --dark: #0e0e1a;
+    --dark2: #14141f;
+    --surface: #1a1a2e;
+    --border: rgba(168,85,247,0.18);
+    --text: #e8e8f0;
+    --muted: #8888aa;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--black);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.5;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 3rem;
+    background: rgba(8,8,16,0.7);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .logo-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .logo-bars span {
+    display: block;
+    height: 5px;
+    border-radius: 99px;
+  }
+  .logo-bars span:nth-child(1) { width: 28px; background: var(--teal); }
+  .logo-bars span:nth-child(2) { width: 28px; background: var(--blue-mid); }
+  .logo-bars span:nth-child(3) { width: 28px; background: var(--purple); }
+
+  .logo-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+  }
+  .logo-text .tri { color: var(--purple); }
+  .logo-text .stack { color: #fff; }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--purple-light); }
+
+  .nav-cta {
+    background: var(--purple);
+    color: #fff;
+    text-decoration: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 99px;
+    letter-spacing: 0.03em;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .nav-cta:hover { background: var(--purple-dark); transform: translateY(-1px); }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8rem 2rem 5rem;
+    overflow: hidden;
+  }
+
+  /* Glow orbs */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+  }
+  .orb-1 {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(168,85,247,0.28) 0%, transparent 70%);
+    top: -120px; left: 50%;
+    transform: translateX(-50%);
+    animation: pulse 8s ease-in-out infinite;
+  }
+  .orb-2 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(15,118,110,0.2) 0%, transparent 70%);
+    bottom: 0; left: -100px;
+    animation: pulse 11s ease-in-out infinite 2s;
+  }
+  .orb-3 {
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(79,107,192,0.2) 0%, transparent 70%);
+    bottom: 100px; right: -80px;
+    animation: pulse 9s ease-in-out infinite 4s;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.7; transform: scale(1) translateX(var(--tx, 0)); }
+    50% { opacity: 1; transform: scale(1.08) translateX(var(--tx, 0)); }
+  }
+
+  .orb-1 { --tx: -50%; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.35);
+    border-radius: 99px;
+    padding: 0.4rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--purple-light);
+    margin-bottom: 2rem;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .hero-badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--purple);
+    animation: blink 1.5s ease infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .hero-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    max-width: 820px;
+    margin: 0 auto 1.5rem;
+    animation: fadeUp 0.8s ease 0.15s both;
+  }
+
+  .hero-title .hl {
+    background: linear-gradient(135deg, var(--purple) 0%, #e879f9 50%, var(--purple-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 2.5rem;
+    line-height: 1.7;
+    font-weight: 300;
+    animation: fadeUp 0.8s ease 0.3s both;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeUp 0.8s ease 0.45s both;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+    color: #fff;
+    padding: 0.9rem 2.2rem;
+    border-radius: 99px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+    box-shadow: 0 0 30px rgba(168,85,247,0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 50px rgba(168,85,247,0.55);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    padding: 0.9rem 2.2rem;
+    border-radius: 99px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .btn-ghost:hover {
+    border-color: var(--purple);
+    color: var(--purple-light);
+    transform: translateY(-3px);
+  }
+
+  /* ─── FLOW STRIP ─── */
+  .flow-strip {
+    padding: 3rem 2rem;
+    background: var(--dark2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .flow-inner {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    white-space: nowrap;
+    animation: marquee 22s linear infinite;
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .flow-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 2.5rem;
+  }
+
+  .flow-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(168,85,247,0.15);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .flow-step span {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .flow-arrow {
+    color: var(--purple);
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+  }
+
+  /* ─── SECTIONS ─── */
+  section {
+    padding: 6rem 2rem;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--purple);
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.2rem;
+  }
+
+  .section-desc {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.75;
+    max-width: 560px;
+    font-weight: 300;
+  }
+
+  /* ─── FEATURES ─── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    overflow: hidden;
+    margin-top: 4rem;
+  }
+
+  .feature-card {
+    background: var(--dark);
+    padding: 2.5rem;
+    position: relative;
+    transition: background 0.3s;
+  }
+
+  .feature-card:hover {
+    background: var(--surface);
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--purple), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .feature-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 0.6rem;
+    color: #fff;
+  }
+
+  .feature-desc {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ─── FLOW DIAGRAM ─── */
+  #como-funciona {
+    background: var(--dark2);
+  }
+
+  .flow-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 4rem;
+    position: relative;
+  }
+
+  .flow-diagram::before {
+    content: '';
+    position: absolute;
+    left: 31px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--purple) 0%, var(--teal) 100%);
+    opacity: 0.4;
+  }
+
+  .flow-item {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    padding: 2rem 0;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.6s ease;
+  }
+
+  .flow-item.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .flow-num {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--dark);
+    border: 2px solid var(--purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--purple);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s;
+  }
+
+  .flow-item:hover .flow-num {
+    background: var(--purple);
+    color: #fff;
+    box-shadow: 0 0 25px rgba(168,85,247,0.5);
+  }
+
+  .flow-content {
+    padding-top: 0.8rem;
+  }
+
+  .flow-content h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #fff;
+    margin-bottom: 0.4rem;
+  }
+
+  .flow-content p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ─── PRICING ─── */
+  #planos {
+    background: var(--black);
+  }
+
+  .pricing-header {
+    text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  .pricing-header .section-desc {
+    margin: 0 auto;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 700px) {
+    .pricing-grid { grid-template-columns: 1fr; }
+  }
+
+  .plan-card {
+    border-radius: 24px;
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s;
+  }
+
+  .plan-card:hover { transform: translateY(-6px); }
+
+  .plan-card.standard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .plan-card.featured {
+    background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(168,85,247,0.1));
+    border: 1px solid var(--purple);
+  }
+
+  .plan-card.featured::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(168,85,247,0.15), transparent 60%);
+    pointer-events: none;
+  }
+
+  .plan-badge {
+    display: inline-block;
+    background: var(--purple);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.8rem;
+    border-radius: 99px;
+    margin-bottom: 1.2rem;
+  }
+
+  .plan-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 0.3rem;
+  }
+
+  .plan-tagline {
+    color: var(--muted);
+    font-size: 0.83rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .plan-price {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 3rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+
+  .plan-price .currency {
+    font-size: 1.4rem;
+    vertical-align: top;
+    margin-top: 0.5rem;
+    display: inline-block;
+    color: var(--purple-light);
+  }
+
+  .plan-price-note {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  .plan-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .plan-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 2rem;
+  }
+
+  .plan-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.88rem;
+    color: var(--text);
+    font-weight: 300;
+  }
+
+  .plan-features li .check {
+    color: var(--purple);
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .plan-payment {
+    margin-bottom: 1.8rem;
+  }
+
+  .plan-payment-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .payment-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .payment-tag {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 99px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .plan-btn {
+    width: 100%;
+    padding: 0.9rem;
+    border-radius: 99px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+
+  .plan-btn.primary {
+    background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+    color: #fff;
+    box-shadow: 0 0 25px rgba(168,85,247,0.3);
+  }
+  .plan-btn.primary:hover { box-shadow: 0 0 45px rgba(168,85,247,0.55); transform: translateY(-2px); }
+
+  .plan-btn.ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .plan-btn.ghost:hover { border-color: var(--purple); color: var(--purple-light); transform: translateY(-2px); }
+
+  /* ─── STEPS ─── */
+  #proximos-passos {
+    background: var(--dark2);
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    margin-top: 4rem;
+  }
+
+  .step-card {
+    text-align: center;
+    padding: 2rem 1rem;
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    transition: all 0.3s;
+    cursor: default;
+  }
+
+  .step-card:hover {
+    border-color: var(--purple);
+    transform: translateY(-4px);
+    background: var(--surface);
+  }
+
+  .step-number {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: #fff;
+    margin: 0 auto 1.2rem;
+    box-shadow: 0 0 15px rgba(168,85,247,0.35);
+  }
+
+  .step-card h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-card p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ─── CTA ─── */
+  .cta-section {
+    padding: 7rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 700px; height: 700px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .cta-section .section-title {
+    max-width: 600px;
+    margin: 0 auto 1rem;
+    font-size: clamp(2rem, 4.5vw, 3.5rem);
+  }
+
+  .cta-section .section-desc {
+    margin: 0 auto 2.5rem;
+    max-width: 440px;
+  }
+
+  .cta-info {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin-top: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .cta-info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .cta-info-item .dot { color: var(--purple); font-size: 1.2rem; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 2rem 3rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  footer p {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  footer p span { color: var(--purple); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.7s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── STATS BAR ─── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-item {
+    background: var(--dark2);
+    padding: 2.5rem;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat-item:last-child { border-right: none; }
+
+  .stat-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--purple), var(--purple-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: block;
+  }
+
+  .stat-label {
+    color: var(--muted);
+    font-size: 0.83rem;
+    margin-top: 0.3rem;
+    font-weight: 300;
+  }
+
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    .stats-bar { grid-template-columns: 1fr; }
+    .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+    footer { flex-direction: column; text-align: center; }
+    .flow-diagram::before { left: 24px; }
+    .flow-num { width: 48px; height: 48px; font-size: 0.9rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="logo-bars">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="logo-text"><span class="tri">Tri</span><span class="stack">Stack</span></div>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#sobre">Sobre</a></li>
+    <li><a href="#como-funciona">Como Funciona</a></li>
+    <li><a href="#planos">Planos</a></li>
+    <li><a href="#proximos-passos">Próximos Passos</a></li>
+  </ul>
+  <a href="#contato" class="nav-cta">Quero Começar →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div>
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Proposta Comercial · HUB Lançamentos
+    </div>
+    <h1 class="hero-title">
+      Agente de IA que<br>
+      <span class="hl">agenda visitas</span><br>
+      enquanto você dorme
+    </h1>
+    <p class="hero-sub">
+      Transformamos seus leads em agendamentos reais — 24 horas por dia, com linguagem humanizada e integração total com o HubSpot.
+    </p>
+    <div class="hero-actions">
+      <a href="#planos" class="btn-primary">Ver Planos e Preços</a>
+      <a href="#como-funciona" class="btn-ghost">Como Funciona</a>
+    </div>
+  </div>
+</section>
+
+<!-- FLOW MARQUEE -->
+<div class="flow-strip">
+  <div class="flow-inner">
+    <!-- duplicated for infinite loop -->
+    <div class="flow-step"><div class="flow-icon">📲</div><span>Lead entra pelo WhatsApp</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">🤖</div><span>IA inicia atendimento</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">🎯</div><span>Qualifica perfil e urgência</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">📅</div><span>Propõe agendamento</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">💼</div><span>Registra no HubSpot</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">🔔</div><span>Notifica equipe comercial</span></div>
+    <span class="flow-arrow">→</span>
+    <!-- duplicate -->
+    <div class="flow-step"><div class="flow-icon">📲</div><span>Lead entra pelo WhatsApp</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">🤖</div><span>IA inicia atendimento</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">🎯</div><span>Qualifica perfil e urgência</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">📅</div><span>Propõe agendamento</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">💼</div><span>Registra no HubSpot</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="flow-icon">🔔</div><span>Notifica equipe comercial</span></div>
+    <span class="flow-arrow">→</span>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat-item reveal">
+    <span class="stat-num">24/7</span>
+    <div class="stat-label">Atendimento ininterrupto</div>
+  </div>
+  <div class="stat-item reveal">
+    <span class="stat-num">100%</span>
+    <div class="stat-label">Linguagem humanizada</div>
+  </div>
+  <div class="stat-item reveal">
+    <span class="stat-num">0s</span>
+    <div class="stat-label">Tempo de resposta ao lead</div>
+  </div>
+</div>
+
+<!-- SOBRE / FEATURES -->
+<section id="sobre">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">O Agente de IA</span>
+      <h2 class="section-title">Tudo que um SDR faz,<br>sem limite de horário</h2>
+      <p class="section-desc">O agente conversa, qualifica e converte seus leads em visitas presenciais — de forma totalmente autônoma, empática e alinhada com a identidade da HUB Lançamentos.</p>
+    </div>
+    <div class="features-grid reveal" style="transition-delay:0.15s">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Atendimento 24/7</div>
+        <div class="feature-desc">Opera continuamente, sem intervalos, respondendo leads a qualquer hora do dia — incluindo fins de semana e feriados.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <div class="feature-title">Linguagem 100% humanizada</div>
+        <div class="feature-desc">Respostas naturais, empáticas e personalizadas para cada lead — indistinguíveis de um atendimento humano de alta qualidade.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-title">Qualificação inteligente</div>
+        <div class="feature-desc">Identifica interesse, perfil e urgência antes de propor o agendamento. Só passa leads quentes para o time comercial.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏠</div>
+        <div class="feature-title">Foco em agendamentos</div>
+        <div class="feature-desc">Todo o fluxo conversacional é construído para converter o lead em uma visita presencial. Nenhuma conversa fica perdida.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <div class="feature-title">Integração HubSpot</div>
+        <div class="feature-desc">Sincronização total com o CRM já utilizado pela HUB Lançamentos — contatos, histórico e agendamentos centralizados.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <div class="feature-title">Aprendizado contínuo</div>
+        <div class="feature-desc">O agente evolui com o tempo, aprimorando abordagens com base nas interações reais do seu público.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section id="como-funciona">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">Fluxo de Atendimento</span>
+      <h2 class="section-title">Do lead ao agendamento,<br>sem intervenção humana</h2>
+      <p class="section-desc">Um fluxo inteligente e automático que garante que nenhum lead seja perdido — em qualquer canal, a qualquer horário.</p>
+    </div>
+    <div class="flow-diagram">
+      <div class="flow-item">
+        <div class="flow-num">1</div>
+        <div class="flow-content">
+          <h3>Lead entra pelo WhatsApp</h3>
+          <p>O atendimento acontece diretamente no WhatsApp — o canal preferido dos seus clientes. O agente está sempre online, pronto para responder instantaneamente.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-num">2</div>
+        <div class="flow-content">
+          <h3>IA inicia atendimento imediato e personalizado</h3>
+          <p>O agente responde em segundos, com saudação personalizada e linguagem adequada ao perfil detectado.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-num">3</div>
+        <div class="flow-content">
+          <h3>Qualifica o interesse e o perfil do cliente</h3>
+          <p>Faz as perguntas certas para entender nível de interesse, poder aquisitivo e urgência — sem parecer um formulário.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-num">4</div>
+        <div class="flow-content">
+          <h3>Conduz naturalmente ao agendamento</h3>
+          <p>Com base na qualificação, propõe datas e horários para visita presencial de forma fluida e sem pressão.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-num">5</div>
+        <div class="flow-content">
+          <h3>Registra automaticamente no CRM gratuito</h3>
+          <p>Todo o histórico, dados do lead e o agendamento são salvos em um CRM gratuito fornecido pela TriStack. Os leads que chegam via HubSpot também são capturados e centralizados automaticamente.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-num">6</div>
+        <div class="flow-content">
+          <h3>Notifica a equipe comercial</h3>
+          <p>O time recebe um briefing completo do lead qualificado — pronto para fechar no momento da visita.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLANOS -->
+<section id="planos">
+  <div class="container">
+    <div class="pricing-header reveal">
+      <span class="section-label">Planos e Investimento</span>
+      <h2 class="section-title">Escolha o modelo<br>que faz mais sentido</h2>
+      <p class="section-desc">Duas modalidades pensadas para se adaptar ao planejamento estratégico e financeiro da HUB Lançamentos.</p>
+    </div>
+    <div class="pricing-grid reveal" style="transition-delay:0.2s">
+
+      <!-- LICENÇA ÚNICA -->
+      <div class="plan-card standard">
+        <div class="plan-name">Licença Única</div>
+        <div class="plan-tagline">Propriedade total do projeto</div>
+        <div class="plan-price"><span class="currency">R$</span>30.000</div>
+        <div class="plan-price-note">Pagamento único · você fica com o código-fonte</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check">✦</span> Desenvolvimento completo do agente</li>
+          <li><span class="check">✦</span> Treinamento e personalização</li>
+          <li><span class="check">✦</span> Captura de leads via HubSpot</li>
+          <li><span class="check">✦</span> CRM gratuito incluso</li>
+          <li><span class="check">✦</span> Implantação e testes</li>
+          <li><span class="check">✦</span> Código-fonte entregue ao cliente</li>
+          <li><span class="check">✦</span> <strong style="color:var(--purple-light)">6 meses de suporte gratuito</strong></li>
+          <li><span class="check">✦</span> Após 6 meses: cobrança por taxa de demanda</li>
+        </ul>
+        <div class="plan-payment">
+          <div class="plan-payment-label">Formas de pagamento</div>
+          <div class="payment-tags">
+            <span class="payment-tag">50% na assinatura</span>
+            <span class="payment-tag">50% na entrega</span>
+            <span class="payment-tag">Até 12x no cartão</span>
+          </div>
+        </div>
+        <button class="plan-btn ghost" onclick="document.getElementById('contato').scrollIntoView({behavior:'smooth'})">Quero esta opção</button>
+      </div>
+
+      <!-- MODELO MENSAL -->
+      <div class="plan-card featured">
+        <div class="plan-badge">Recomendado</div>
+        <div class="plan-name">Modelo Mensal</div>
+        <div class="plan-tagline">Sem investimento inicial elevado</div>
+        <div class="plan-price"><span class="currency">R$</span>5.000</div>
+        <div class="plan-price-note">taxa única de desenvolvimento<br>depois <strong style="color:var(--purple-light)">R$ 2.700/mês</strong></div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check">✦</span> Taxa de desenvolvimento: R$ 5.000</li>
+          <li><span class="check">✦</span> Após entrega: R$ 2.700/mês</li>
+          <li><span class="check">✦</span> Manutenção e atualizações inclusas</li>
+          <li><span class="check">✦</span> Captura de leads via HubSpot</li>
+          <li><span class="check">✦</span> CRM gratuito incluso</li>
+          <li><span class="check">✦</span> Suporte contínuo durante o uso</li>
+          <li><span class="check">✦</span> Evolução e melhorias constantes</li>
+        </ul>
+        <div class="plan-payment">
+          <div class="plan-payment-label">Formas de pagamento</div>
+          <div class="payment-tags">
+            <span class="payment-tag">Cartão de crédito</span>
+            <span class="payment-tag">Boleto bancário</span>
+            <span class="payment-tag">Pix</span>
+          </div>
+        </div>
+        <button class="plan-btn primary" onclick="document.getElementById('contato').scrollIntoView({behavior:'smooth'})">Quero começar agora →</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PRÓXIMOS PASSOS -->
+<section id="proximos-passos">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">Próximos Passos</span>
+      <h2 class="section-title">De hoje ao Go-Live<br>em semanas</h2>
+      <p class="section-desc">Um processo claro e estruturado para garantir que o agente seja lançado com o máximo de performance desde o primeiro dia.</p>
+    </div>
+    <div class="steps-grid reveal" style="transition-delay:0.15s">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Aprovação da Proposta</h3>
+        <p>Confirmação do plano escolhido e assinatura do contrato.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Reunião de Briefing</h3>
+        <p>Alinhamento sobre o perfil dos clientes da HUB e scripts de atendimento.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Desenvolvimento</h3>
+        <p>Criação e customização do agente conforme a identidade da empresa.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Integração HubSpot</h3>
+        <p>Configuração e testes de sincronização com o CRM atual.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">5</div>
+        <h3>Go-Live 🚀</h3>
+        <p>Lançamento do agente com acompanhamento intensivo nas primeiras semanas.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-section" id="contato">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">Vamos começar?</span>
+      <h2 class="section-title">Pronto para transformar o atendimento da <span style="color:var(--purple)">HUB Lançamentos</span>?</h2>
+      <p class="section-desc">Esta proposta tem validade de 30 dias a partir de 10/04/2026. Entre em contato agora e garanta sua implementação.</p>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+        <a href="https://wa.me/5531990832225?text=Olá%2C%20vim%20pelo%20site%20da%20TriStack%20e%20quero%20saber%20mais%20sobre%20o%20Agente%20de%20IA!" class="btn-primary" style="font-size:1rem;padding:1rem 2.5rem">💬 Falar pelo WhatsApp</a>
+        <a href="mailto:tristack.tecnologia@gmail.com" class="btn-ghost" style="font-size:1rem;padding:1rem 2.5rem">✉️ Enviar E-mail</a>
+      </div>
+      <div class="cta-info">
+        <div class="cta-info-item"><span class="dot">✦</span> Validade: 30 dias</div>
+        <div class="cta-info-item"><span class="dot">✦</span> Data: 10/04/2026</div>
+        <div class="cta-info-item"><span class="dot">✦</span> Cliente: HUB Lançamentos</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="nav-logo">
+    <div class="logo-bars">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="logo-text"><span class="tri">Tri</span><span class="stack">Stack</span></div>
+  </div>
+  <p>Inteligência Artificial & Automação · <a href="https://tristack.com.br" style="color:var(--purple-light);text-decoration:none">tristack.com.br</a></p>
+  <p style="font-size:0.75rem;color:var(--muted)">Proposta válida até 10/05/2026</p>
+</footer>
+
+<script>
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.reveal, .flow-item').forEach(el => observer.observe(el));
+
+  // Stagger flow items
+  document.querySelectorAll('.flow-item').forEach((el, i) => {
+    el.style.transitionDelay = `${i * 0.1}s`;
+  });
+</script>
+</body>
+</html>
